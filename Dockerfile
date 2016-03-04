@@ -1,11 +1,7 @@
 FROM mono:4
-MAINTAINER Dmitry  K "d.p.karpov@gmail.com"
+MAINTAINER Chris C <ccormier@gmail.com>
 
-ENV DUPLICATI_VER 2.0.0.98_preview_2016-01-27
-
-ENV D_TIME_ZONE Europe/Moscow
-ENV D_CODEPAGE UTF-8 
-ENV D_LANG ru_RU
+ENV DUPLICATI_VER 2.0.0.99_preview_2016-02-15
 
 RUN echo "force-unsafe-io" > /etc/dpkg/dpkg.cfg.d/02apt-speedup
 RUN echo "Acquire::http {No-Cache=True;};" > /etc/apt/apt.conf.d/no-cache
@@ -15,12 +11,11 @@ ENV HOME /root
 
 RUN apt-get update && \
 apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends \
-    expect \
     libsqlite3-0 \
-    unzip \
-    locales && \
+    unzip && \
 curl -sSL http://updates.duplicati.com/preview/duplicati-${DUPLICATI_VER}.zip -o /duplicati-${DUPLICATI_VER}.zip && \
 unzip duplicati-${DUPLICATI_VER}.zip -d /app && \
+rm duplicati-${DUPLICATI_VER}.zip && \
 apt-get purge -y --auto-remove unzip && \
 apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -28,18 +23,10 @@ apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 # CloudFiles, Skydrive, GoogleDocs and S3 use SSL which requires you to trust their certificate issuer. 
 # Run this command to let Mono use the same certificates that Mozilla (Firefox) uses:
 # https://code.google.com/p/duplicati/wiki/LinuxHowto#Issues_with_,_Skydrive,_and_S3
-# /usr/bin/mozroots --import --sync 
 RUN /usr/bin/mozroots --import --sync
 
-# Set locale (fix the locale warnings)
-RUN localedef -v -c -i ${D_LANG} -f ${D_CODEPAGE} ${D_LANG}.${D_CODEPAGE} || : && \
-update-locale LANG=${D_LANG}.${D_CODEPAGE} && \
-echo "${D_TIME_ZONE}" > /etc/timezone && dpkg-reconfigure --frontend noninteractive tzdata
+VOLUME ["/root/.config/Duplicati/"]
 
-ADD ./entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-VOLUME /root/.config/Duplicati/
 EXPOSE 8200
-ENTRYPOINT ["/entrypoint.sh"]
 
+CMD ["mono", "/app/Duplicati.Server.exe", "--webservice-port=8200", "--webservice-interface=*"]
